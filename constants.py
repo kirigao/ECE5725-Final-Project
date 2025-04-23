@@ -1,10 +1,13 @@
 USER_CAR_PATH = "images/user_car.png"
-CPU_CAR_PATH = "imagines/cpu_car.png"
+CPU_CAR_PATH = "images/cpu_car.png"
 
 LEFT_BOUNDARY = 240
 RIGHT_BOUNDARY = 240*4
+BOTTOM_BOUNDARY = 800
 
 USER_CAR_CENTER = (600, 750)
+
+CPU_CAR_SPEED = 1
 
 LANE_COLOR = (255, 255, 255)
 LANE_WIDTH = 4
