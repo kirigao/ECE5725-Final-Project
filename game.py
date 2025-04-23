@@ -3,11 +3,46 @@ from threading import Thread
 from time import sleep
 import constants
 
+def out_of_bounds(coordinates):
+  x = coordinates[0]
+  y = coordinates[1]
+  if x < constants.LEFT_BOUNDARY:
+    return True
+  elif x > constants.RIGHT_BOUNDARY:
+    return True
+  return False
+
+def move_user_left():
+  new_user_car_coordinates = (user_car_rect.left - constants.LANE_X_LENGTH, user_car_rect.right)
+  if not out_of_bounds(new_user_car_coordinates):
+    user_car_rect.move_ip(-constants.LANE_X_LENGTH, 0)
+
+def move_user_right():
+  new_user_car_coordinates = (user_car_rect.left + constants.LANE_X_LENGTH, user_car_rect.right)
+  if not out_of_bounds(new_user_car_coordinates):
+    user_car_rect.move_ip(constants.LANE_X_LENGTH, 0)
+
+def left_button_pressed():
+  return pygame.key.get_pressed()[pygame.K_LEFT]
+
+def right_button_pressed():
+  return pygame.key.get_pressed()[pygame.K_RIGHT]
+
+def move_user_car():
+  sleep(0.3)
+  if left_button_pressed():
+    move_user_left()
+    print("left button pressed")
+  else:
+    move_user_right()
+
 def draw_background():
   lcd.fill((0,0,0))
   return
 
 def draw_user():
+  if (left_button_pressed() or right_button_pressed()):
+    move_user_car()
   lcd.blit(user_car, user_car_rect)
   return
 
@@ -46,8 +81,10 @@ pygame.display.update()
 # Add a game loop to keep the window open
 running = True
 while running:
+    draw_background()
     draw_user()
     draw_lanes()
+    pygame.display.update()
     pygame.display.flip()
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
