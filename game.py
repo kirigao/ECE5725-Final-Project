@@ -1,5 +1,7 @@
 import pygame
+import random
 from threading import Thread
+import time
 from time import sleep
 import constants
 
@@ -8,6 +10,8 @@ import constants
 lcd = pygame.display.set_mode((1200, 800))
 
 cur_id = 0
+last_button_press = time.time()
+
 user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.1)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 cpu_car_id_to_rect_map = {}
@@ -15,7 +19,15 @@ cpu_car_id_to_surface_map = {}
 
 def generate_cpu_car():
   global cur_id
-  cpu_car_center = (600, 300) # hard coded for now ===============================
+  random_num = random.randint(1, 3)
+  cpu_car_center = (0, 0)
+  if (random_num == 1):
+    cpu_car_center = (constants.LEFT_LANE_CENTER_X, 0)
+  elif (random_num == 2):
+    cpu_car_center = (constants.MIDDLE_LANE_CENTER_X, 0)
+  else:
+    cpu_car_center = (constants.RIGHT_LANE_CENTER_X, 0)
+
   cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.1)
   cpu_car_rect = cpu_car.get_rect(center=(cpu_car_center))
   cpu_car_id_to_rect_map[cur_id] = cpu_car_rect
@@ -26,9 +38,7 @@ def remove_all_passed_cpu_cars():
   cpu_cars_list = list(cpu_car_id_to_rect_map.keys())
   for id in cpu_cars_list:
     cpu_car_rect = cpu_car_id_to_rect_map[id]
-    cpu_car_coordinates = (cpu_car_rect.x, cpu_car_rect.y)
-    print(cpu_car_coordinates)
-    if (out_of_bounds(cpu_car_coordinates)):
+    if (out_of_bounds(cpu_car_rect)):
       cpu_car_id_to_rect_map.pop(id)
       cpu_car_id_to_surface_map.pop(id)
 
@@ -39,26 +49,32 @@ def move_all_cpu_cars():
 def move_cpu_car(cpu_car):
   cpu_car.move_ip(0, constants.CPU_CAR_SPEED)
 
-def out_of_bounds(coordinates):
-  x = coordinates[0]
-  y = coordinates[1]
-  if x < constants.LEFT_BOUNDARY:
+def out_of_bounds(rect):
+  left = rect.left
+  right = rect.left + rect.width
+  top = rect.top
+  bottom = rect.top + rect.height
+  if left < constants.LEFT_BOUNDARY or right < constants.LEFT_BOUNDARY:
     return True
-  elif x > constants.RIGHT_BOUNDARY:
+  elif left > constants.RIGHT_BOUNDARY or right > constants.RIGHT_BOUNDARY:
     return True
-  elif y > constants.BOTTOM_BOUNDARY:
-    print("out of bounds!")
+  elif top > constants.BOTTOM_BOUNDARY or bottom > constants.BOTTOM_BOUNDARY:
+    #print("out of bounds!")
     return True
   return False
 
 def move_user_left():
-  new_user_car_coordinates = (user_car_rect.left - constants.LANE_X_LENGTH, user_car_rect.right)
-  if not out_of_bounds(new_user_car_coordinates):
+  time.sleep(0.2)
+  new_rect = user_car_rect.copy()
+  new_rect.move_ip(-constants.LANE_X_LENGTH, 0)
+  if not out_of_bounds(new_rect):
     user_car_rect.move_ip(-constants.LANE_X_LENGTH, 0)
 
 def move_user_right():
-  new_user_car_coordinates = (user_car_rect.left + constants.LANE_X_LENGTH, user_car_rect.right)
-  if not out_of_bounds(new_user_car_coordinates):
+  time.sleep(0.2)
+  new_rect = user_car_rect.copy()
+  new_rect.move_ip(constants.LANE_X_LENGTH, 0)
+  if not out_of_bounds(new_rect):
     user_car_rect.move_ip(constants.LANE_X_LENGTH, 0)
 
 def left_button_pressed():
@@ -68,12 +84,17 @@ def right_button_pressed():
   return pygame.key.get_pressed()[pygame.K_RIGHT]
 
 def move_user_car():
-  sleep(0.3)
-  if left_button_pressed():
-    move_user_left()
-    print("left button pressed")
-  else:
-    move_user_right()
+  global last_button_press
+  current_time = time.time()
+  if current_time - last_button_press >= constants.KEY_PRESS_INTERVAL:
+    if left_button_pressed():
+      move_user_left()
+      print("left button pressed")
+    elif right_button_pressed():
+      move_user_right()
+      print("right button pressed")
+
+    last_button_press = current_time
 
 def draw_background():
   lcd.fill((0,0,0))
@@ -111,6 +132,8 @@ def draw_lanes():
 
 pygame.init()
 pygame.mouse.set_visible(True)
+last_generate_time = time.time()
+
 
 lcd.fill((0,0,0))
 pygame.display.update()
@@ -121,10 +144,14 @@ pygame.display.update()
 
 # t1 = Thread(target=task)  #create new thread
 # t1.start()    #start the thread
-generate_cpu_car() #remove after testing
 # Add a game loop to keep the window open
 running = True
 while running:
+    current_time = time.time()
+    if current_time - last_generate_time >= constants.CPU_GENERATION_INTERVAL:
+      # print(str(current_time) + " generated new cpu car.")
+      generate_cpu_car()
+      last_generate_time = current_time
     draw_background()
     draw_user()
     draw_cpu()
