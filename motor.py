@@ -1,6 +1,9 @@
 import time
+import os
 from smbus2 import SMBus
 import RPi.GPIO as GPIO
+
+normalized_V = 0.5
 
 # --- ADS1115 Setup ---
 I2C_BUS = 1
@@ -51,20 +54,17 @@ pwm = GPIO.PWM(PWM, 3000)
 pwm.start(0)
 
 # --- Force Feedback Parameters ---
-CENTER_VOLTAGE = 1.65      # Ideal center of 3.3V range
-DEADZONE_VOLTAGE = 0.1     # Volts to ignore near center
-MAX_DUTY_CYCLE = 50        # Max PWM % to apply
-GAIN = 100                 # Scale of force per volt
+CENTER_VOLTAGE = 1.65
+DEADZONE_VOLTAGE = 0.1
+MAX_DUTY_CYCLE = 50
+GAIN = 100
 
 def apply_feedback(voltage):
     error = voltage - CENTER_VOLTAGE
-
-    # Apply deadzone
     if abs(error) < DEADZONE_VOLTAGE:
         pwm.ChangeDutyCycle(0)
         return
 
-    # Determine direction
     if error < 0:
         GPIO.output(IN1, GPIO.HIGH)
         GPIO.output(IN2, GPIO.LOW)
@@ -72,17 +72,25 @@ def apply_feedback(voltage):
         GPIO.output(IN1, GPIO.LOW)
         GPIO.output(IN2, GPIO.HIGH)
 
-    # Apply torque proportional to error
     duty = min(MAX_DUTY_CYCLE, abs(error) * GAIN)
     pwm.ChangeDutyCycle(duty)
 
+# --- FIFO Setup ---
+FIFO_PATH = "steering_fifo"
+
+# Create FIFO if it doesn't exist
+if not os.path.exists(FIFO_PATH):
+    os.mkfifo(FIFO_PATH)
+
 # --- Main Loop ---
-with SMBus(I2C_BUS) as bus:
-    print("Force feedback active. Press Ctrl+C to stop.")
+with SMBus(I2C_BUS) as bus, open(FIFO_PATH, 'w') as fifo:
+    print("Force feedback active. Writing to FIFO. Press Ctrl+C to stop.")
     try:
         while True:
             voltage = read_voltage(bus)
-            print(f"Pot Voltage: {voltage:.3f} V")
+            normalized_V = voltage / 3.3
+            # fifo.write(f"{normalized:.4f}\n")
+            # fifo.flush()  # Ensure it gets written immediately
             apply_feedback(voltage)
             time.sleep(0.01)
     except KeyboardInterrupt:
