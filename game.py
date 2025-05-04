@@ -11,11 +11,20 @@ lcd = pygame.display.set_mode((1200, 800))
 
 cur_id = 0
 last_button_press = time.time()
+game_state = constants.GAME_STATE_RUNNING
 
 user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.1)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 cpu_car_id_to_rect_map = {}
 cpu_car_id_to_surface_map = {}
+
+def detect_collisions():
+  global game_state
+  cpu_car_rect_list = list(cpu_car_id_to_rect_map.values())
+  if user_car_rect.collidelist(cpu_car_rect_list) != -1:
+    #print("collision detected!")
+    game_state = constants.GAME_STATE_OVER
+
 
 def generate_cpu_car():
   global cur_id
@@ -147,6 +156,9 @@ pygame.display.update()
 # Add a game loop to keep the window open
 running = True
 while running:
+  if (game_state == constants.GAME_STATE_OVER):
+    draw_background()
+  elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
     if current_time - last_generate_time >= constants.CPU_GENERATION_INTERVAL:
       # print(str(current_time) + " generated new cpu car.")
@@ -156,11 +168,12 @@ while running:
     draw_user()
     draw_cpu()
     draw_lanes()
-    pygame.display.update()
-    pygame.display.flip()
-    for event in pygame.event.get():
-      if event.type == pygame.QUIT:
-        running = False
+    detect_collisions()
+  pygame.display.update()
+  pygame.display.flip()
+  for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+      running = False
 
 print("quit main code, waiting for thread to quit...")
 # t1.join()   # Wait for thread to complete

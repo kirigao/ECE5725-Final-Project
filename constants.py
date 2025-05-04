@@ -1,6 +1,9 @@
 USER_CAR_PATH = "images/user_car.png"
 CPU_CAR_PATH = "images/cpu_car.png"
 
+GAME_STATE_OVER = "OVER"
+GAME_STATE_RUNNING = "RUNNING"
+
 CPU_GENERATION_INTERVAL = 5
 KEY_PRESS_INTERVAL = 1
 
