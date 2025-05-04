@@ -23,6 +23,14 @@ restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CE
 cpu_car_id_to_rect_map = {}
 cpu_car_id_to_surface_map = {}
 
+def reset_game():
+  global user_car_rect
+  global cur_id
+  cpu_car_id_to_rect_map.clear()
+  cpu_car_id_to_surface_map.clear()
+  user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
+  cur_id = 0
+
 def detect_collisions():
   global game_state
   cpu_car_rect_list = list(cpu_car_id_to_rect_map.values())
@@ -185,6 +193,8 @@ while running:
 
     elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
       print("restart click")
+      reset_game()
+      game_state = constants.GAME_STATE_RUNNING
 
 print("quit main code, waiting for thread to quit...")
 # t1.join()   # Wait for thread to complete
