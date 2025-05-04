@@ -1,4 +1,5 @@
 import pygame
+# from pygame.locals import * # for event MOUSE variables
 import random
 from threading import Thread
 import time
@@ -15,8 +16,20 @@ game_state = constants.GAME_STATE_RUNNING
 
 user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.1)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
+
+restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH)
+restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
+
 cpu_car_id_to_rect_map = {}
 cpu_car_id_to_surface_map = {}
+
+def reset_game():
+  global user_car_rect
+  global cur_id
+  cpu_car_id_to_rect_map.clear()
+  cpu_car_id_to_surface_map.clear()
+  user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
+  cur_id = 0
 
 def detect_collisions():
   global game_state
@@ -24,7 +37,6 @@ def detect_collisions():
   if user_car_rect.collidelist(cpu_car_rect_list) != -1:
     #print("collision detected!")
     game_state = constants.GAME_STATE_OVER
-
 
 def generate_cpu_car():
   global cur_id
@@ -109,6 +121,9 @@ def draw_background():
   lcd.fill((0,0,0))
   return
 
+def draw_restart_button():
+  lcd.blit(restart_button, restart_button_rect)
+
 def draw_user():
   if (left_button_pressed() or right_button_pressed()):
     move_user_car()
@@ -158,6 +173,7 @@ running = True
 while running:
   if (game_state == constants.GAME_STATE_OVER):
     draw_background()
+    draw_restart_button()
   elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
     if current_time - last_generate_time >= constants.CPU_GENERATION_INTERVAL:
@@ -174,6 +190,11 @@ while running:
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       running = False
+
+    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
+      print("restart click")
+      reset_game()
+      game_state = constants.GAME_STATE_RUNNING
 
 print("quit main code, waiting for thread to quit...")
 # t1.join()   # Wait for thread to complete
