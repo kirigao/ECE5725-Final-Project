@@ -183,7 +183,7 @@ while running:
     if event.type == pygame.QUIT:
       running = False
 
-    elif event.type == pygame.MOUSEBUTTONUP and constants.GAME_STATE_OVER:
+    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
       print("restart click")
 
 print("quit main code, waiting for thread to quit...")
