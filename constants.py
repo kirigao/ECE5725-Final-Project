@@ -1,5 +1,6 @@
 USER_CAR_PATH = "images/user_car.png"
 CPU_CAR_PATH = "images/cpu_car.png"
+RESTART_BUTTON_PATH = "images/restart_button.png"
 
 GAME_STATE_OVER = "OVER"
 GAME_STATE_RUNNING = "RUNNING"
@@ -12,6 +13,7 @@ RIGHT_BOUNDARY = 240*4
 BOTTOM_BOUNDARY = 800
 
 USER_CAR_CENTER = (600, 750)
+RESTART_BUTTON_CENTER = (600, 400)
 
 CPU_CAR_SPEED = 1
 
