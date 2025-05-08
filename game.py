@@ -92,16 +92,12 @@ if not os.path.exists(FIFO_PATH):
 # --- Main Loop ---
 def motor_thread_function():
   global normalized_V
-  with SMBus(I2C_BUS) as bus, open(FIFO_PATH, 'w') as fifo:
-      print("Force feedback active. Writing to FIFO. Press Ctrl+C to stop.")
+  with SMBus(I2C_BUS) as bus:
       try:
           while True:
               voltage = read_voltage(bus)
               normalized_V = voltage / 3.3
-              my_cmd = f"echo {normalized_V:.4f} > /home/pi/finalproject/steering_fifo"
-              subprocess.check_output(my_cmd, shell=True)
               apply_feedback(voltage)
-              time.sleep(0.01)
       except KeyboardInterrupt:
           print("\nShutting down...")
       finally:
@@ -113,8 +109,10 @@ def motor_thread_function():
 # global variables
 
 lcd = pygame.display.set_mode((1200, 800))
+BLUE = (0, 0, 255)
 
 cur_id = 0
+score = 0
 last_button_press = time.time()
 game_state = constants.GAME_STATE_RUNNING
 
@@ -124,55 +122,78 @@ user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH)
 restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
 
-cpu_car_id_to_rect_map = {}
-cpu_car_id_to_surface_map = {}
+item_id_to_rect_map = {}
+item_id_to_surface_map = {}
+
 
 def reset_game():
   global user_car_rect
   global cur_id
-  cpu_car_id_to_rect_map.clear()
-  cpu_car_id_to_surface_map.clear()
+  global score
+  item_id_to_rect_map.clear()
+  item_id_to_surface_map.clear()
   user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
   cur_id = 0
+  score = 0
 
 def detect_collisions():
   global game_state
-  cpu_car_rect_list = list(cpu_car_id_to_rect_map.values())
-  if user_car_rect.collidelist(cpu_car_rect_list) != -1:
-    #print("collision detected!")
-    game_state = constants.GAME_STATE_OVER
+  global score
+  item_rect_list = list(item_id_to_rect_map.values())
+  found_collision_id = "Null"
+  for (id, item_rect) in item_id_to_rect_map.items():
+    if user_car_rect.colliderect(item_rect) == True:
+        if "money" in id:
+            found_collision_id = id
+            score = score + 5
+            print(score)
+            break
+        else:
+            game_state = constants.GAME_STATE_OVER
 
-def generate_cpu_car():
+  if found_collision_id != "Null":
+      item_id_to_rect_map.pop(id)
+      item_id_to_surface_map.pop(id)
+
+def generate_item(item):
   global cur_id
   random_num = random.randint(1, 3)
-  cpu_car_center = (0, 0)
+  item_center = (0, 0)
   if (random_num == 1):
-    cpu_car_center = (constants.LEFT_LANE_CENTER_X, 0)
+    item_center = (constants.LEFT_LANE_CENTER_X, 0)
   elif (random_num == 2):
-    cpu_car_center = (constants.MIDDLE_LANE_CENTER_X, 0)
+    item_center = (constants.MIDDLE_LANE_CENTER_X, 0)
   else:
-    cpu_car_center = (constants.RIGHT_LANE_CENTER_X, 0)
+    item_center = (constants.RIGHT_LANE_CENTER_X, 0)
 
-  cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.1)
-  cpu_car_rect = cpu_car.get_rect(center=(cpu_car_center))
-  cpu_car_id_to_rect_map[cur_id] = cpu_car_rect
-  cpu_car_id_to_surface_map[cur_id] = cpu_car
+  if item == "car":
+    cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.1)
+    cpu_car_rect = cpu_car.get_rect(center=(item_center))
+    item_id_to_rect_map[item + str(cur_id)] = cpu_car_rect
+    item_id_to_surface_map[item + str(cur_id)] = cpu_car
+  elif item == "money":
+    money = pygame.transform.scale_by(pygame.image.load(constants.MONEY_PATH), 0.1)
+    money_rect = money.get_rect(center=(item_center))
+    item_id_to_rect_map[item + str(cur_id)] = money_rect
+    item_id_to_surface_map[item + str(cur_id)] = money
   cur_id = cur_id + 1
 
-def remove_all_passed_cpu_cars():
-  cpu_cars_list = list(cpu_car_id_to_rect_map.keys())
-  for id in cpu_cars_list:
-    cpu_car_rect = cpu_car_id_to_rect_map[id]
-    if (out_of_bounds(cpu_car_rect)):
-      cpu_car_id_to_rect_map.pop(id)
-      cpu_car_id_to_surface_map.pop(id)
 
-def move_all_cpu_cars():
-  for cpu_car_rect in cpu_car_id_to_rect_map.values():
-    move_cpu_car(cpu_car_rect)
 
-def move_cpu_car(cpu_car):
-  cpu_car.move_ip(0, constants.CPU_CAR_SPEED)
+def remove_all_items():
+  item_list = list(item_id_to_rect_map.keys())
+  for id in item_list:
+    item_rect = item_id_to_rect_map[id]
+    if (out_of_bounds(item_rect)):
+      item_id_to_rect_map.pop(id)
+      item_id_to_surface_map.pop(id)
+
+def move_all_items():
+  for item_rect in item_id_to_rect_map.values():
+    move_item(item_rect)
+
+def move_item(item_rect):
+  item_rect.move_ip(0, constants.CPU_CAR_SPEED)
 
 def out_of_bounds(rect):
   left = rect.left
@@ -188,26 +209,6 @@ def out_of_bounds(rect):
     return True
   return False
 
-def move_user_left():
-  time.sleep(0.2)
-  new_rect = user_car_rect.copy()
-  new_rect.move_ip(-constants.LANE_X_LENGTH, 0)
-  if not out_of_bounds(new_rect):
-    user_car_rect.move_ip(-constants.LANE_X_LENGTH, 0)
-
-def move_user_right():
-  time.sleep(0.2)
-  new_rect = user_car_rect.copy()
-  new_rect.move_ip(constants.LANE_X_LENGTH, 0)
-  if not out_of_bounds(new_rect):
-    user_car_rect.move_ip(constants.LANE_X_LENGTH, 0)
-
-def left_button_pressed():
-  return pygame.key.get_pressed()[pygame.K_LEFT]
-
-def right_button_pressed():
-  return pygame.key.get_pressed()[pygame.K_RIGHT]
-
 def move_user_car():
     volt = normalized_V
     invert_volt = 1-volt
@@ -219,6 +220,11 @@ def draw_background():
   lcd.fill((0,0,0))
   return
 
+def draw_score():
+    font = pygame.font.SysFont(None, 24)
+    text = font.render('score: ' + str(score), True, BLUE)
+    lcd.blit(text, (100, 100))
+
 def draw_restart_button():
   lcd.blit(restart_button, restart_button_rect)
 
@@ -228,11 +234,11 @@ def draw_user():
   return
 
 def draw_cpu():
-  move_all_cpu_cars()
-  remove_all_passed_cpu_cars()
-  for (id, cpu_car_rect) in cpu_car_id_to_rect_map.items():
-    cpu_car = cpu_car_id_to_surface_map[id]
-    lcd.blit(cpu_car, cpu_car_rect)
+  move_all_items()
+  remove_all_items()
+  for (id, item_rect) in item_id_to_rect_map.items():
+    item = item_id_to_surface_map[id]
+    lcd.blit(item, item_rect)
     #print(cpu_car_rect)
   return
 
@@ -253,8 +259,8 @@ def draw_lanes():
 
 pygame.init()
 pygame.mouse.set_visible(True)
-last_generate_time = time.time()
-
+last_car_generate_time = time.time()
+last_money_generate_time = time.time()
 
 lcd.fill((0,0,0))
 pygame.display.update()
@@ -277,11 +283,15 @@ while running:
     draw_restart_button()
   elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
-    if current_time - last_generate_time >= constants.CPU_GENERATION_INTERVAL:
+    if current_time - last_car_generate_time >= constants.CAR_GENERATION_INTERVAL:
       # print(str(current_time) + " generated new cpu car.")
-      generate_cpu_car()
-      last_generate_time = current_time
+      generate_item("car")
+      last_car_generate_time = current_time
+    if current_time - last_money_generate_time >= constants.MONEY_GENERATION_INTERVAL:
+      generate_item("money")
+      last_money_generate_time = current_time
     draw_background()
+    draw_score()
     draw_user()
     draw_cpu()
     draw_lanes()
