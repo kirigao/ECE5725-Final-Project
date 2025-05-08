@@ -82,13 +82,6 @@ def apply_feedback(voltage):
     duty = min(MAX_DUTY_CYCLE, abs(error) * GAIN)
     pwm.ChangeDutyCycle(duty)
 
-# --- FIFO Setup ---
-FIFO_PATH = "steering_fifo"
-
-# Create FIFO if it doesn't exist
-if not os.path.exists(FIFO_PATH):
-    os.mkfifo(FIFO_PATH)
-
 # --- Main Loop ---
 def motor_thread_function():
   global normalized_V
@@ -112,9 +105,16 @@ lcd = pygame.display.set_mode((1200, 800))
 BLUE = (0, 0, 255)
 
 cur_id = 0
+total_cash = 0
 score = 0
+high_score = 0
+program_start_time = time.time()
+
 last_button_press = time.time()
 game_state = constants.GAME_STATE_RUNNING
+
+last_car_generate_time = time.time()
+last_money_generate_time = time.time()
 
 user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.1)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
@@ -125,28 +125,38 @@ restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CE
 item_id_to_rect_map = {}
 item_id_to_surface_map = {}
 
+def update_score():
+    global score
+    score = time.time() - program_start_time + total_cash
 
 def reset_game():
   global user_car_rect
   global cur_id
   global score
+  global total_cash
+  global program_start_time
+  global last_car_generate_time
+  global last_money_generate_time
   item_id_to_rect_map.clear()
   item_id_to_surface_map.clear()
   user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
   cur_id = 0
   score = 0
+  total_cash = 0
+  program_start_time = time.time()
+  last_car_generate_time = time.time()
+  last_money_generate_time = time.time()
 
 def detect_collisions():
   global game_state
-  global score
+  global total_cash
   item_rect_list = list(item_id_to_rect_map.values())
   found_collision_id = "Null"
   for (id, item_rect) in item_id_to_rect_map.items():
     if user_car_rect.colliderect(item_rect) == True:
         if "money" in id:
             found_collision_id = id
-            score = score + 5
-            print(score)
+            total_cash = total_cash + 5
             break
         else:
             game_state = constants.GAME_STATE_OVER
@@ -221,9 +231,15 @@ def draw_background():
   return
 
 def draw_score():
+    global high_score
+    update_score()
+    if score > high_score:
+        high_score = score
     font = pygame.font.SysFont(None, 24)
-    text = font.render('score: ' + str(score), True, BLUE)
-    lcd.blit(text, (100, 100))
+    score_text = font.render('score: ' + str(int(score)), True, BLUE)
+    lcd.blit(score_text, (100, 100))
+    high_score_text = font.render('high score: ' + str(int(high_score)), True, BLUE)
+    lcd.blit(high_score_text, (100, 150))
 
 def draw_restart_button():
   lcd.blit(restart_button, restart_button_rect)
@@ -259,8 +275,6 @@ def draw_lanes():
 
 pygame.init()
 pygame.mouse.set_visible(True)
-last_car_generate_time = time.time()
-last_money_generate_time = time.time()
 
 lcd.fill((0,0,0))
 pygame.display.update()
