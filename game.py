@@ -126,6 +126,12 @@ last_item_generate_time = time.time()
 user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.2)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 
+background = pygame.image.load(constants.BACKGROUND_PATH)
+background_rect = background.get_rect(center=constants.BACKGROUND_CENTER)
+
+duplicate_background = pygame.image.load(constants.BACKGROUND_PATH)
+duplicate_background_rect = background.get_rect(center=constants.DUPLICATE_BACKGROUND_CENTER)
+
 restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH)
 restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
 
@@ -203,7 +209,9 @@ def generate_item():
     item_center = (constants.RIGHT_LANE_CENTER_X, -300)
 
   if random_item_probability <= constants.GENERATE_CAR_PROBABILITY:
-    cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.4)
+    random_car = random.randint(0, 2)
+    car_path = constants.CAR_PATHS[random_car]
+    cpu_car = pygame.transform.scale_by(pygame.image.load(car_path), 0.4)
     cpu_car_rect = cpu_car.get_rect(center=(item_center))
     item_id_to_rect_map["car" + str(cur_id)] = cpu_car_rect
     item_id_to_surface_map["car" + str(cur_id)] = cpu_car
@@ -245,6 +253,13 @@ def move_item(item_rect):
   time_passed = time.time() - program_start_time
   item_rect.move_ip(0, constants.CPU_CAR_SPEED + time_passed*0.1)
 
+def move_item_half_speed(item_rect):
+  time_passed = time.time() - program_start_time
+  item_rect.move_ip(0, (constants.CPU_CAR_SPEED + time_passed*0.1)/2)
+
+def move_background_to_top(background_rect):
+  background_rect.move_ip(0, (-constants.BACKGROUND_TOP_DISTANCE + ((constants.CPU_CAR_SPEED + time_passed*0.1)/2) ) )
+
 def out_of_bounds(rect):
   left = rect.left
   right = rect.left + rect.width
@@ -254,10 +269,14 @@ def out_of_bounds(rect):
     return True
   elif left > constants.RIGHT_BOUNDARY or right > constants.RIGHT_BOUNDARY:
     return True
-  elif top > constants.BOTTOM_BOUNDARY or bottom > constants.BOTTOM_BOUNDARY:
+  elif top > constants.BOTTOM_BOUNDARY:
     #print("out of bounds!")
     return True
   return False
+
+def bg_out_of_bounds(rect):
+  top = rect.top
+  return top >= constants.BOTTOM_BOUNDARY
 
 def move_user_car():
     volt = normalized_V
@@ -276,6 +295,18 @@ def draw_title():
 
 def draw_background():
   lcd.fill((0,0,0))
+  if bg_out_of_bounds(background_rect) == False:
+    move_item_half_speed(background_rect)
+  elif bg_out_of_bounds(background_rect):
+    move_background_to_top(background_rect)
+
+  if bg_out_of_bounds(duplicate_background_rect) == False:
+    move_item_half_speed(duplicate_background_rect)
+  elif bg_out_of_bounds(duplicate_background_rect):
+    move_background_to_top(duplicate_background_rect)
+
+  lcd.blit(background, background_rect)
+  lcd.blit(duplicate_background, duplicate_background_rect)
   return
 
 def draw_score():

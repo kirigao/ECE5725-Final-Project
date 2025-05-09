@@ -1,9 +1,11 @@
-USER_CAR_PATH = "images/user_car.png"
+USER_CAR_PATH = "images/redcar.png"
 CPU_CAR_PATH = "images/cpu_car.png"
 RESTART_BUTTON_PATH = "images/restart_button.png"
 STACK_PATH = "images/money.png"
 COIN_PATH = "images/money0.png"
 BILL_PATH = "images/money1.png"
+BACKGROUND_PATH = "images/background.png"
+CAR_PATHS = ["images/greencar.png", "images/truck.png", "images/bus.png"]
 
 COIN = "coin"
 BILL = "bill"
@@ -24,9 +26,11 @@ GENERATE_STACK_PROBABILITY = 100
 
 LEFT_BOUNDARY = 240
 RIGHT_BOUNDARY = 240*4
-BOTTOM_BOUNDARY = 1100
+BOTTOM_BOUNDARY = 800
 
 USER_CAR_CENTER = (600, 750)
+BACKGROUND_CENTER = (600, 400)
+DUPLICATE_BACKGROUND_CENTER = (600, -400)
 RESTART_BUTTON_CENTER = (600, 400)
 
 CPU_CAR_SPEED = 4
@@ -48,3 +52,5 @@ AUXILIARY_END_POS = (240*4, 800)
 LEFT_LANE_CENTER_X = 600-240
 MIDDLE_LANE_CENTER_X = 600
 RIGHT_LANE_CENTER_X = 600+240
+
+BACKGROUND_TOP_DISTANCE = 800*2
