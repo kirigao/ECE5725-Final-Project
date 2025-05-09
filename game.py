@@ -36,7 +36,7 @@ CONFIG_REG = (CONFIG_OS_SINGLE |
 def read_voltage(bus):
     config_bytes = [(CONFIG_REG >> 8) & 0xFF, CONFIG_REG & 0xFF]
     bus.write_i2c_block_data(ADS1115_ADDRESS, ADS1115_POINTER_CONFIG, config_bytes)
-    time.sleep(0.01)
+    time.sleep(0.07)
     data = bus.read_i2c_block_data(ADS1115_ADDRESS, ADS1115_POINTER_CONVERSION, 2)
     raw_adc = (data[0] << 8) | data[1]
     if raw_adc > 0x7FFF:
@@ -103,6 +103,7 @@ def motor_thread_function():
 
 lcd = pygame.display.set_mode((1200, 800))
 BLUE = (0, 0, 255)
+WHITE = (255, 255, 255)
 
 cur_id = 0
 total_cash = 0
@@ -111,7 +112,7 @@ high_score = 0
 program_start_time = time.time()
 
 last_button_press = time.time()
-game_state = constants.GAME_STATE_RUNNING
+game_state = constants.GAME_STATE_TITLE
 
 last_car_generate_time = time.time()
 last_money_generate_time = time.time()
@@ -203,7 +204,8 @@ def move_all_items():
     move_item(item_rect)
 
 def move_item(item_rect):
-  item_rect.move_ip(0, constants.CPU_CAR_SPEED)
+  time_passed = time.time() - program_start_time
+  item_rect.move_ip(0, constants.CPU_CAR_SPEED + time_passed*0.1)
 
 def out_of_bounds(rect):
   left = rect.left
@@ -226,6 +228,14 @@ def move_user_car():
     volt_to_x_coord = invert_volt*720 + 240
     dx = volt_to_x_coord - user_car_rect.center[0]
     user_car_rect.move_ip(dx, 0)
+
+def draw_title():
+  lcd.fill((0,0,0))
+  font = pygame.font.SysFont(None, 72)
+  title_text = font.render('[Insert Title]', True, WHITE)
+  lcd.blit(title_text, (450, 220))
+  return
+
 def draw_background():
   lcd.fill((0,0,0))
   return
@@ -292,7 +302,10 @@ t1.start()    #start the thread
 # Add a game loop to keep the window open
 running = True
 while running:
-  if (game_state == constants.GAME_STATE_OVER):
+  if (game_state == constants.GAME_STATE_TITLE):
+    draw_title()
+    draw_restart_button()
+  elif (game_state == constants.GAME_STATE_OVER):
     draw_background()
     draw_restart_button()
   elif (game_state == constants.GAME_STATE_RUNNING):
@@ -317,6 +330,11 @@ while running:
       running = False
 
     elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
+      print("restart click")
+      reset_game()
+      game_state = constants.GAME_STATE_RUNNING
+
+    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_TITLE:
       print("restart click")
       reset_game()
       game_state = constants.GAME_STATE_RUNNING

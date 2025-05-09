@@ -3,6 +3,7 @@ CPU_CAR_PATH = "images/cpu_car.png"
 RESTART_BUTTON_PATH = "images/restart_button.png"
 MONEY_PATH = "images/money.png"
 
+GAME_STATE_TITLE = "TITLE"
 GAME_STATE_OVER = "OVER"
 GAME_STATE_RUNNING = "RUNNING"
 
