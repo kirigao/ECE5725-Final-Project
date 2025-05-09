@@ -106,18 +106,24 @@ BLUE = (0, 0, 255)
 WHITE = (255, 255, 255)
 
 cur_id = 0
-total_cash = 0
+
+# statistics
 score = 0
 high_score = 0
+cars_avoided = 0
+total_cash = 0
+time_passed = 0
+current_level = 0
+
+
 program_start_time = time.time()
 
 last_button_press = time.time()
 game_state = constants.GAME_STATE_TITLE
 
-last_car_generate_time = time.time()
-last_money_generate_time = time.time()
+last_item_generate_time = time.time()
 
-user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.1)
+user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.2)
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 
 restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH)
@@ -125,6 +131,10 @@ restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CE
 
 item_id_to_rect_map = {}
 item_id_to_surface_map = {}
+
+def update_time_passed():
+    global time_passed
+    time_passed = time.time() - program_start_time
 
 def update_score():
     global score
@@ -138,6 +148,9 @@ def reset_game():
   global program_start_time
   global last_car_generate_time
   global last_money_generate_time
+  global cars_avoided
+  global time_passed
+  global current_level
   item_id_to_rect_map.clear()
   item_id_to_surface_map.clear()
   user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
@@ -147,6 +160,9 @@ def reset_game():
   program_start_time = time.time()
   last_car_generate_time = time.time()
   last_money_generate_time = time.time()
+  cars_avoided = 0
+  time_passed = 0
+  current_level = 0
 
 def detect_collisions():
   global game_state
@@ -155,9 +171,17 @@ def detect_collisions():
   found_collision_id = "Null"
   for (id, item_rect) in item_id_to_rect_map.items():
     if user_car_rect.colliderect(item_rect) == True:
-        if "money" in id:
+        if constants.COIN in id:
+            found_collision_id = id
+            total_cash = total_cash + 2
+            break
+        elif constants.BILL in id:
             found_collision_id = id
             total_cash = total_cash + 5
+            break
+        elif constants.STACK in id:
+            found_collision_id = id
+            total_cash = total_cash + 10
             break
         else:
             game_state = constants.GAME_STATE_OVER
@@ -166,36 +190,50 @@ def detect_collisions():
       item_id_to_rect_map.pop(id)
       item_id_to_surface_map.pop(id)
 
-def generate_item(item):
+def generate_item():
   global cur_id
+  random_item_probability = random.randint(1, 100)
   random_num = random.randint(1, 3)
   item_center = (0, 0)
   if (random_num == 1):
-    item_center = (constants.LEFT_LANE_CENTER_X, 0)
+    item_center = (constants.LEFT_LANE_CENTER_X, -300)
   elif (random_num == 2):
-    item_center = (constants.MIDDLE_LANE_CENTER_X, 0)
+    item_center = (constants.MIDDLE_LANE_CENTER_X, -300)
   else:
-    item_center = (constants.RIGHT_LANE_CENTER_X, 0)
+    item_center = (constants.RIGHT_LANE_CENTER_X, -300)
 
-  if item == "car":
-    cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.1)
+  if random_item_probability <= constants.GENERATE_CAR_PROBABILITY:
+    cpu_car = pygame.transform.scale_by(pygame.image.load(constants.CPU_CAR_PATH), 0.4)
     cpu_car_rect = cpu_car.get_rect(center=(item_center))
-    item_id_to_rect_map[item + str(cur_id)] = cpu_car_rect
-    item_id_to_surface_map[item + str(cur_id)] = cpu_car
-  elif item == "money":
-    money = pygame.transform.scale_by(pygame.image.load(constants.MONEY_PATH), 0.1)
+    item_id_to_rect_map["car" + str(cur_id)] = cpu_car_rect
+    item_id_to_surface_map["car" + str(cur_id)] = cpu_car
+  elif random_item_probability <= constants.GENERATE_COIN_PROBABILITY:
+    money = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0.04)
     money_rect = money.get_rect(center=(item_center))
-    item_id_to_rect_map[item + str(cur_id)] = money_rect
-    item_id_to_surface_map[item + str(cur_id)] = money
+    item_id_to_rect_map["coin" + str(cur_id)] = money_rect
+    item_id_to_surface_map["coin" + str(cur_id)] = money
+  elif random_item_probability <= constants.GENERATE_BILL_PROBABILITY:
+    money = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.08)
+    money_rect = money.get_rect(center=(item_center))
+    item_id_to_rect_map["bill" + str(cur_id)] = money_rect
+    item_id_to_surface_map["bill" + str(cur_id)] = money
+  elif random_item_probability <= constants.GENERATE_STACK_PROBABILITY:
+    money = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.08)
+    money_rect = money.get_rect(center=(item_center))
+    item_id_to_rect_map["stack" + str(cur_id)] = money_rect
+    item_id_to_surface_map["stack" + str(cur_id)] = money
   cur_id = cur_id + 1
 
 
 
 def remove_all_items():
+  global cars_avoided
   item_list = list(item_id_to_rect_map.keys())
   for id in item_list:
     item_rect = item_id_to_rect_map[id]
     if (out_of_bounds(item_rect)):
+      if "car" in id:
+        cars_avoided = cars_avoided + 1
       item_id_to_rect_map.pop(id)
       item_id_to_surface_map.pop(id)
 
@@ -247,9 +285,42 @@ def draw_score():
         high_score = score
     font = pygame.font.SysFont(None, 24)
     score_text = font.render('score: ' + str(int(score)), True, BLUE)
-    lcd.blit(score_text, (100, 100))
+    lcd.blit(score_text, (50, 100))
     high_score_text = font.render('high score: ' + str(int(high_score)), True, BLUE)
-    lcd.blit(high_score_text, (100, 150))
+    lcd.blit(high_score_text, (50, 150))
+
+def draw_cars_avoided():
+    global cars_avoided
+    font = pygame.font.SysFont(None, 24)
+    cars_avoided_text = font.render('cars avoided: ' + str(cars_avoided), True, BLUE)
+    lcd.blit(cars_avoided_text, (50, 200))
+
+def draw_total_cash():
+    global total_cash
+    font = pygame.font.SysFont(None, 24)
+    total_cash_text = font.render('total_cash: ' + str(total_cash), True, BLUE)
+    lcd.blit(total_cash_text, (50, 250))
+
+def draw_time_passed():
+    global time_passed
+    font = pygame.font.SysFont(None, 24)
+    time_passed_text = font.render('time passed: ' + str(int(time_passed)), True, BLUE)
+    lcd.blit(time_passed_text, (50, 300))
+
+def draw_current_level():
+    global current_level
+    font = pygame.font.SysFont(None, 24)
+    current_level_text = font.render('current level: ' + str(current_level), True, BLUE)
+    lcd.blit(current_level_text, (50, 350))
+
+def draw_statistics():
+    draw_score()
+    draw_cars_avoided()
+    draw_total_cash()
+    
+    update_time_passed()
+    draw_time_passed()
+    draw_current_level()
 
 def draw_restart_button():
   lcd.blit(restart_button, restart_button_rect)
@@ -310,15 +381,13 @@ while running:
     draw_restart_button()
   elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
-    if current_time - last_car_generate_time >= constants.CAR_GENERATION_INTERVAL:
-      # print(str(current_time) + " generated new cpu car.")
-      generate_item("car")
-      last_car_generate_time = current_time
-    if current_time - last_money_generate_time >= constants.MONEY_GENERATION_INTERVAL:
-      generate_item("money")
-      last_money_generate_time = current_time
+    # current_level = int((current_time - program_start_time) //30)
+    # if current_time - last_item_generate_time >= constants.ITEM_GENERATION_INTERVAL-current_level*0.5:
+    if (current_time - last_item_generate_time >= 5.67/ (4 + (current_time - last_item_generate_time) * 0.1)):
+      generate_item()
+      last_item_generate_time = current_time
     draw_background()
-    draw_score()
+    draw_statistics()
     draw_user()
     draw_cpu()
     draw_lanes()
