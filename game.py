@@ -12,6 +12,7 @@ import subprocess
 
 normalized_V = 0.5
 
+pygame.init()
 # --- ADS1115 Setup ---
 I2C_BUS = 1
 ADS1115_ADDRESS = 0x48
@@ -36,7 +37,7 @@ CONFIG_REG = (CONFIG_OS_SINGLE |
 def read_voltage(bus):
     config_bytes = [(CONFIG_REG >> 8) & 0xFF, CONFIG_REG & 0xFF]
     bus.write_i2c_block_data(ADS1115_ADDRESS, ADS1115_POINTER_CONFIG, config_bytes)
-    time.sleep(0.07)
+    time.sleep(0.01)
     data = bus.read_i2c_block_data(ADS1115_ADDRESS, ADS1115_POINTER_CONVERSION, 2)
     raw_adc = (data[0] << 8) | data[1]
     if raw_adc > 0x7FFF:
@@ -62,11 +63,14 @@ pwm.start(0)
 
 # --- Force Feedback Parameters ---
 CENTER_VOLTAGE = 1.65
-DEADZONE_VOLTAGE = 0.1
-MAX_DUTY_CYCLE = 50
-GAIN = 100
+DEADZONE_VOLTAGE = 0.15
+MAX_DUTY_CYCLE = 60
+P_GAIN = 100
+D_GAIN = 7
+last_error = 1.65
 
 def apply_feedback(voltage):
+    global last_error
     error = voltage - CENTER_VOLTAGE
     if abs(error) < DEADZONE_VOLTAGE:
         pwm.ChangeDutyCycle(0)
@@ -79,7 +83,18 @@ def apply_feedback(voltage):
         GPIO.output(IN1, GPIO.LOW)
         GPIO.output(IN2, GPIO.HIGH)
 
-    duty = min(MAX_DUTY_CYCLE, abs(error) * GAIN)
+    # proportional gain
+    duty = abs(error) * P_GAIN
+
+    # derivative gain
+    derivative = error - last_error
+
+    duty += derivative * D_GAIN
+    last_error = error
+
+    #clamp max duty cycle
+    duty = min(MAX_DUTY_CYCLE, duty)
+    duty = max(0, duty)
     pwm.ChangeDutyCycle(duty)
 
 # --- Main Loop ---
@@ -106,7 +121,7 @@ BLUE = (0, 0, 255)
 WHITE = (255, 255, 255)
 
 cur_id = 0
-
+FPS = 60
 # statistics
 score = 0
 high_score = 0
@@ -123,20 +138,56 @@ game_state = constants.GAME_STATE_TITLE
 
 last_item_generate_time = time.time()
 
-user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.2)
+user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.2).convert_alpha()
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 
-background = pygame.image.load(constants.BACKGROUND_PATH)
+background = pygame.image.load(constants.BACKGROUND_PATH).convert_alpha()
 background_rect = background.get_rect(center=constants.BACKGROUND_CENTER)
 
-duplicate_background = pygame.image.load(constants.BACKGROUND_PATH)
 duplicate_background_rect = background.get_rect(center=constants.DUPLICATE_BACKGROUND_CENTER)
 
-restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH)
+restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH).convert_alpha()
 restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
 
+car_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[0]), 0.4).convert_alpha()
+truck_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[1]), 0.4).convert_alpha()
+bus_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[2]), 0.4).convert_alpha()
+
+cpu_car_images = [car_image, truck_image, bus_image]
+coin_image = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0.04).convert_alpha()
+bill_image = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.04).convert_alpha()
+stack_image = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.04).convert_alpha()
+
+
+font = pygame.font.SysFont(None, 24)
 item_id_to_rect_map = {}
 item_id_to_surface_map = {}
+
+sorted_players = []
+
+my_clock = pygame.time.Clock()
+
+def write_to_file(filename, player_score):
+  with open(filename, 'a') as file:
+      for player, score in player_score.items():
+        file.write(f"{player},{score}\n")
+  print(f"Player data has been written to {filename}")
+
+def read_and_sort(filename):
+    global sorted_players
+    players_scores = {}
+    try:
+      with open(filename, 'r') as file:
+        for line in file:
+          player, score = line.strip().split(',')
+          players_scores[player] = int(score)
+
+      sorted_players = sorted(players_scores.items(), key=lambda x: x[1], reverse=True)
+      print("\nPlayers sorted by score (highest to lowest):")
+      for player, score in sorted_players:
+        print(f"{player}: {score}")
+    except FileNotFoundError:
+      print(f"File {fileName} not found.")
 
 def update_time_passed():
     global time_passed
@@ -210,26 +261,22 @@ def generate_item():
 
   if random_item_probability <= constants.GENERATE_CAR_PROBABILITY:
     random_car = random.randint(0, 2)
-    car_path = constants.CAR_PATHS[random_car]
-    cpu_car = pygame.transform.scale_by(pygame.image.load(car_path), 0.4)
-    cpu_car_rect = cpu_car.get_rect(center=(item_center))
+
+    cpu_car_rect = cpu_car_images[random_car].get_rect(center=(item_center))
     item_id_to_rect_map["car" + str(cur_id)] = cpu_car_rect
-    item_id_to_surface_map["car" + str(cur_id)] = cpu_car
+    item_id_to_surface_map["car" + str(cur_id)] = cpu_car_images[random_car]
   elif random_item_probability <= constants.GENERATE_COIN_PROBABILITY:
-    money = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0.04)
-    money_rect = money.get_rect(center=(item_center))
+    money_rect = coin_image.get_rect(center=(item_center))
     item_id_to_rect_map["coin" + str(cur_id)] = money_rect
-    item_id_to_surface_map["coin" + str(cur_id)] = money
+    item_id_to_surface_map["coin" + str(cur_id)] = coin_image
   elif random_item_probability <= constants.GENERATE_BILL_PROBABILITY:
-    money = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.08)
-    money_rect = money.get_rect(center=(item_center))
+    money_rect = bill_image.get_rect(center=(item_center))
     item_id_to_rect_map["bill" + str(cur_id)] = money_rect
-    item_id_to_surface_map["bill" + str(cur_id)] = money
+    item_id_to_surface_map["bill" + str(cur_id)] = bill_image
   elif random_item_probability <= constants.GENERATE_STACK_PROBABILITY:
-    money = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.08)
-    money_rect = money.get_rect(center=(item_center))
+    money_rect = stack_image.get_rect(center=(item_center))
     item_id_to_rect_map["stack" + str(cur_id)] = money_rect
-    item_id_to_surface_map["stack" + str(cur_id)] = money
+    item_id_to_surface_map["stack" + str(cur_id)] = stack_image
   cur_id = cur_id + 1
 
 
@@ -282,14 +329,14 @@ def move_user_car():
     volt = normalized_V
     invert_volt = 1-volt
 
-    volt_to_x_coord = invert_volt*720 + 240
+    volt_to_x_coord = invert_volt*constants.USER_CAR_BOUND_LENGTH + constants.USER_CAR_LEFT_BOUND
     dx = volt_to_x_coord - user_car_rect.center[0]
     user_car_rect.move_ip(dx, 0)
 
 def draw_title():
   lcd.fill((0,0,0))
-  font = pygame.font.SysFont(None, 72)
-  title_text = font.render('[Insert Title]', True, WHITE)
+  title_font = pygame.font.SysFont(None, 72)
+  title_text = title_font.render('[Insert Title]', True, WHITE)
   lcd.blit(title_text, (450, 220))
   return
 
@@ -306,7 +353,7 @@ def draw_background():
     move_background_to_top(duplicate_background_rect)
 
   lcd.blit(background, background_rect)
-  lcd.blit(duplicate_background, duplicate_background_rect)
+  lcd.blit(background, duplicate_background_rect)
   return
 
 def draw_score():
@@ -314,33 +361,37 @@ def draw_score():
     update_score()
     if score > high_score:
         high_score = score
-    font = pygame.font.SysFont(None, 24)
     score_text = font.render('score: ' + str(int(score)), True, BLUE)
     lcd.blit(score_text, (50, 100))
     high_score_text = font.render('high score: ' + str(int(high_score)), True, BLUE)
     lcd.blit(high_score_text, (50, 150))
 
+def draw_leaderboard():
+  index = 1
+  leaderboard_text = font.render("Leaderboard", True, BLUE)
+  lcd.blit(leaderboard_text, (1000, 100))
+  for player, score in sorted_players:
+    text = font.render(f"{index}: {player} {score}", True, BLUE)
+    lcd.blit(text, (1000, 100 + 50*index))
+    index = index + 1
+
 def draw_cars_avoided():
     global cars_avoided
-    font = pygame.font.SysFont(None, 24)
     cars_avoided_text = font.render('cars avoided: ' + str(cars_avoided), True, BLUE)
     lcd.blit(cars_avoided_text, (50, 200))
 
 def draw_total_cash():
     global total_cash
-    font = pygame.font.SysFont(None, 24)
     total_cash_text = font.render('total_cash: ' + str(total_cash), True, BLUE)
     lcd.blit(total_cash_text, (50, 250))
 
 def draw_time_passed():
     global time_passed
-    font = pygame.font.SysFont(None, 24)
     time_passed_text = font.render('time passed: ' + str(int(time_passed)), True, BLUE)
     lcd.blit(time_passed_text, (50, 300))
 
 def draw_current_level():
     global current_level
-    font = pygame.font.SysFont(None, 24)
     current_level_text = font.render('current level: ' + str(current_level), True, BLUE)
     lcd.blit(current_level_text, (50, 350))
 
@@ -385,7 +436,6 @@ def draw_lanes():
 #     if (user_num == 0):
 #       thread_running = False
 
-pygame.init()
 pygame.mouse.set_visible(True)
 
 lcd.fill((0,0,0))
@@ -403,7 +453,11 @@ t1.start()    #start the thread
 
 # Add a game loop to keep the window open
 running = True
+
+read_and_sort(constants.SCORES_FILE_NAME)
 while running:
+  my_clock.tick(FPS)
+  lcd.fill((0,0,0))
   if (game_state == constants.GAME_STATE_TITLE):
     draw_title()
     draw_restart_button()
@@ -419,12 +473,13 @@ while running:
       last_item_generate_time = current_time
     draw_background()
     draw_statistics()
+    draw_leaderboard()
     draw_user()
     draw_cpu()
-    draw_lanes()
+    #draw_lanes()
     detect_collisions()
   pygame.display.update()
-  pygame.display.flip()
+  #pygame.display.flip()
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       running = False
