@@ -64,9 +64,9 @@ pwm.start(0)
 # --- Force Feedback Parameters ---
 CENTER_VOLTAGE = 1.65
 DEADZONE_VOLTAGE = 0.15
-MAX_DUTY_CYCLE = 60
+MAX_DUTY_CYCLE = 90
 P_GAIN = 100
-D_GAIN = 7
+D_GAIN = 50
 last_error = 1.65
 
 def apply_feedback(voltage):
@@ -138,7 +138,7 @@ game_state = constants.GAME_STATE_TITLE
 
 last_item_generate_time = time.time()
 
-user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.2).convert_alpha()
+user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.45).convert_alpha()
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 
 background = pygame.image.load(constants.BACKGROUND_PATH).convert_alpha()
@@ -149,23 +149,30 @@ duplicate_background_rect = background.get_rect(center=constants.DUPLICATE_BACKG
 restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH).convert_alpha()
 restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
 
-car_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[0]), 0.4).convert_alpha()
-truck_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[1]), 0.4).convert_alpha()
-bus_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[2]), 0.4).convert_alpha()
+green_car_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[0]), 0.45).convert_alpha()
+blue_car_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[1]), 0.45).convert_alpha()
+truck_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[2]), 0.58).convert_alpha()
+bus_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[3]), 0.58).convert_alpha()
 
-cpu_car_images = [car_image, truck_image, bus_image]
+cpu_car_images = [green_car_image, blue_car_image, truck_image, bus_image]
 coin_image = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0.04).convert_alpha()
 bill_image = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.04).convert_alpha()
 stack_image = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.04).convert_alpha()
 
 
 font = pygame.font.SysFont(None, 24)
+name_font = pygame.font.SysFont(None, 36)
+
 item_id_to_rect_map = {}
 item_id_to_surface_map = {}
 
 sorted_players = []
 
 my_clock = pygame.time.Clock()
+
+user_input_box = pygame.Rect(constants.USER_INPUT_BOX_X, constants.USER_INPUT_BOX_Y, constants.USER_INPUT_BOX_WIDTH, constants.USER_INPUT_BOX_HEIGHT)
+user_input = ''
+player_name = ''
 
 def write_to_file(filename, player_score):
   with open(filename, 'a') as file:
@@ -195,7 +202,7 @@ def update_time_passed():
 
 def update_score():
     global score
-    score = time.time() - program_start_time + total_cash
+    score = int(time.time() - program_start_time) + total_cash
 
 def reset_game():
   global user_car_rect
@@ -247,6 +254,15 @@ def detect_collisions():
       item_id_to_rect_map.pop(id)
       item_id_to_surface_map.pop(id)
 
+
+def generate_random_car():
+  global current_level
+  if current_level < 4:
+    random_car = random.choices([0, 1, 2, 3], weights = constants.LEVELPROBS[current_level])[0]
+  else:
+    random_car = random.choices([0, 1, 2, 3], weights = constants.LEVELPROBS[4])[0]
+  return random_car
+
 def generate_item():
   global cur_id
   random_item_probability = random.randint(1, 100)
@@ -260,7 +276,7 @@ def generate_item():
     item_center = (constants.RIGHT_LANE_CENTER_X, -300)
 
   if random_item_probability <= constants.GENERATE_CAR_PROBABILITY:
-    random_car = random.randint(0, 2)
+    random_car = generate_random_car()
 
     cpu_car_rect = cpu_car_images[random_car].get_rect(center=(item_center))
     item_id_to_rect_map["car" + str(cur_id)] = cpu_car_rect
@@ -333,11 +349,19 @@ def move_user_car():
     dx = volt_to_x_coord - user_car_rect.center[0]
     user_car_rect.move_ip(dx, 0)
 
+def draw_input():
+    user_input_text = name_font.render(user_input, True, constants.BLACK)
+    pygame.draw.rect(lcd, WHITE, user_input_box)
+    lcd.blit(user_input_text, constants.USER_INPUT_CENTER)
+
 def draw_title():
   lcd.fill((0,0,0))
   title_font = pygame.font.SysFont(None, 72)
-  title_text = title_font.render('[Insert Title]', True, WHITE)
+  title_text = title_font.render(constants.TITLE_SCREEN_NAME, True, WHITE)
   lcd.blit(title_text, (450, 220))
+
+  instructions_text = name_font.render(constants.TITLE_SCREEN_INSTRUCTIONS, True, WHITE)
+  lcd.blit(instructions_text, constants.TITLE_SCREEN_INSTRUCTIONS_CENTER)
   return
 
 def draw_background():
@@ -371,6 +395,8 @@ def draw_leaderboard():
   leaderboard_text = font.render("Leaderboard", True, BLUE)
   lcd.blit(leaderboard_text, (1000, 100))
   for player, score in sorted_players:
+    if index == 10:
+      break
     text = font.render(f"{index}: {player} {score}", True, BLUE)
     lcd.blit(text, (1000, 100 + 50*index))
     index = index + 1
@@ -453,22 +479,22 @@ t1.start()    #start the thread
 
 # Add a game loop to keep the window open
 running = True
-
+currently_writing = True
 read_and_sort(constants.SCORES_FILE_NAME)
 while running:
   my_clock.tick(FPS)
   lcd.fill((0,0,0))
   if (game_state == constants.GAME_STATE_TITLE):
     draw_title()
-    draw_restart_button()
+    draw_input()
   elif (game_state == constants.GAME_STATE_OVER):
     draw_background()
     draw_restart_button()
   elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
-    # current_level = int((current_time - program_start_time) //30)
-    # if current_time - last_item_generate_time >= constants.ITEM_GENERATION_INTERVAL-current_level*0.5:
-    if (current_time - last_item_generate_time >= 5.67/ (4 + (current_time - last_item_generate_time) * 0.1)):
+    current_level = int((current_time - program_start_time) //30)
+    # if (current_time - last_item_generate_time >= 8/ (10 + (current_time - last_item_generate_time) * 0.1)):
+    if (current_time - last_item_generate_time >= (8 / (7 + 2.5 * current_level))):
       generate_item()
       last_item_generate_time = current_time
     draw_background()
@@ -486,13 +512,21 @@ while running:
 
     elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
       print("restart click")
+      write_to_file(constants.SCORES_FILE_NAME, {player_name:score})
       reset_game()
       game_state = constants.GAME_STATE_RUNNING
 
-    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_TITLE:
-      print("restart click")
-      reset_game()
-      game_state = constants.GAME_STATE_RUNNING
+    elif event.type == pygame.KEYDOWN and currently_writing:
+      if event.key == pygame.K_RETURN:
+        currently_writing = False
+        player_name = user_input
+        reset_game()
+        game_state = constants.GAME_STATE_RUNNING
+      elif event.key == pygame.K_BACKSPACE:
+        user_input = user_input[:-1]
+      else:
+        if len(user_input) < 12:  
+          user_input = user_input + event.unicode
 
 print("quit main code, waiting for thread to quit...")
 t1.join()   # Wait for thread to complete
