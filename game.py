@@ -100,9 +100,10 @@ def apply_feedback(voltage):
 # --- Main Loop ---
 def motor_thread_function():
   global normalized_V
+  global running
   with SMBus(I2C_BUS) as bus:
       try:
-          while True:
+          while running:
               voltage = read_voltage(bus)
               normalized_V = voltage / 3.3
               apply_feedback(voltage)
@@ -173,6 +174,9 @@ for i in range(10):
  numbers_images.append(num_img)
 
 level_image = pygame.transform.scale_by(pygame.image.load(constants.LEVEL_PATH), 0.2).convert_alpha()
+
+quit_game_image = pygame.transform.scale_by(pygame.image.load(constants.QUIT_GAME_PATH), 0.2).convert_alpha()
+return_home_image = pygame.transform.scale_by(pygame.image.load(constants.RETURN_HOME_PATH), 0.2).convert_alpha()
 
 font = pygame.font.SysFont(None, 24)
 name_font = pygame.font.SysFont(None, 36)
@@ -404,6 +408,8 @@ def draw_title():
 
   instructions_text = name_font.render(constants.TITLE_SCREEN_INSTRUCTIONS, True, WHITE)
   lcd.blit(instructions_text, constants.TITLE_SCREEN_INSTRUCTIONS_CENTER)
+
+  lcd.blit(quit_game_image, (350, 735))
   return
 
 def draw_background():
@@ -457,7 +463,7 @@ def draw_cars_avoided():
 
 def draw_total_cash():
     global total_cash
-    total_cash_text = font.render('total_cash: ' + str(total_cash), True, BLUE)
+    total_cash_text = font.render('total cash: ' + str(total_cash), True, BLUE)
     lcd.blit(total_cash_text, (50, 250))
 
 def draw_time_passed():
@@ -498,6 +504,7 @@ def draw_statistics():
 
 def draw_restart_button():
   lcd.blit(restart_button, restart_button_rect)
+  lcd.blit(return_home_image, (350, 710))
 
 def draw_user():
   move_user_car()
@@ -581,9 +588,17 @@ while running:
     if event.type == pygame.QUIT:
       running = False
 
-    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:
+    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and game_state == constants.GAME_STATE_OVER:
       print("restart click")
       write_to_file(constants.SCORES_FILE_NAME, {player_name:score})
+      game_state = constants.GAME_STATE_TITLE
+      currently_writing = True
+
+    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and game_state == constants.GAME_STATE_TITLE:
+      running = False
+
+    elif event.type == pygame.MOUSEBUTTONUP and game_state == constants.GAME_STATE_OVER:    
+      write_to_file(constants.SCORES_FILE_NAME, {player_name:score})  
       reset_game()
       game_state = constants.GAME_STATE_RUNNING
 

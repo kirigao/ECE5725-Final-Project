@@ -10,6 +10,8 @@ CAR_PATHS = ["images/greencar.png", "images/bluecar.png", "images/truck.png", "i
 LEVEL_PATH = "images/levels/level.png"
 LEVEL_NUM_PATHS = ["images/levels/0.png", "images/levels/1.png", "images/levels/2.png", "images/levels/3.png", "images/levels/4.png", 
     "images/levels/5.png", "images/levels/6.png", "images/levels/7.png", "images/levels/8.png", "images/levels/9.png" ]
+RETURN_HOME_PATH = "images/return_home.png"
+QUIT_GAME_PATH = "images/quit_game.png"
 
 BLACK = (0, 0, 0)
 
