@@ -163,8 +163,8 @@ bus_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[3]),
 
 cpu_car_images = [green_car_image, blue_car_image, truck_image, bus_image]
 coin_image = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0.04).convert_alpha()
-bill_image = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.04).convert_alpha()
-stack_image = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.04).convert_alpha()
+bill_image = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.055).convert_alpha()
+stack_image = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.055).convert_alpha()
 
 heart_image = pygame.transform.scale_by(pygame.image.load(constants.HEART_PATH), 0.4).convert_alpha()
 
