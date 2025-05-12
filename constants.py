@@ -1,11 +1,15 @@
-USER_CAR_PATH = "images/redcar.png"
-CPU_CAR_PATH = "images/cpu_car.png"
-RESTART_BUTTON_PATH = "images/restart_button.png"
+USER_CAR_PATH = "images/redcar2.png"
+RESTART_BUTTON_PATH = "images/restart.png"
 STACK_PATH = "images/money.png"
 COIN_PATH = "images/money0.png"
 BILL_PATH = "images/money1.png"
 BACKGROUND_PATH = "images/background.png"
+TITLE_SCREEN_PATH = "images/title_screen.png"
+HEART_PATH = "images/heart.png"
 CAR_PATHS = ["images/greencar.png", "images/bluecar.png", "images/truck.png", "images/bus.png"]
+LEVEL_PATH = "images/levels/level.png"
+LEVEL_NUM_PATHS = ["images/levels/0.png", "images/levels/1.png", "images/levels/2.png", "images/levels/3.png", "images/levels/4.png", 
+    "images/levels/5.png", "images/levels/6.png", "images/levels/7.png", "images/levels/8.png", "images/levels/9.png" ]
 
 BLACK = (0, 0, 0)
 
@@ -25,6 +29,9 @@ GAME_STATE_RUNNING = "RUNNING"
 
 ITEM_GENERATION_INTERVAL = 0.81
 KEY_PRESS_INTERVAL = 1
+
+LIFE_LOST_COOLDOWN = 3
+LEVEL_DISPLAY_TIME = 2
 
 LEVEL0PROB = (0.5, 0.5, 0, 0)
 LEVEL1PROB = (0.32, 0.32, 0.36, 0)
@@ -48,9 +55,10 @@ USER_CAR_LEFT_BOUND = 350
 USER_CAR_CENTER = (600, 750)
 BACKGROUND_CENTER = (600, 400)
 DUPLICATE_BACKGROUND_CENTER = (600, -400)
+TITLE_SCREEN_CENTER = (600, 400)
 RESTART_BUTTON_CENTER = (600, 400)
-USER_INPUT_CENTER = (600-200/2, 500)
-TITLE_SCREEN_INSTRUCTIONS_CENTER = (350, 450)
+USER_INPUT_CENTER = (600-200/2+10, 710)
+TITLE_SCREEN_INSTRUCTIONS_CENTER = (350, 650)
 
 CPU_CAR_SPEED = 10
 
@@ -75,6 +83,6 @@ RIGHT_LANE_CENTER_X = 600+200
 BACKGROUND_TOP_DISTANCE = 800*2
 
 USER_INPUT_BOX_X = 600 - 200/2
-USER_INPUT_BOX_Y = 500
+USER_INPUT_BOX_Y = 700
 USER_INPUT_BOX_WIDTH = 200
 USER_INPUT_BOX_HEIGHT = 40

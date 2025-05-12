@@ -129,6 +129,7 @@ cars_avoided = 0
 total_cash = 0
 time_passed = 0
 current_level = 0
+lives = 3
 
 
 program_start_time = time.time()
@@ -137,16 +138,21 @@ last_button_press = time.time()
 game_state = constants.GAME_STATE_TITLE
 
 last_item_generate_time = time.time()
+last_time_lost_life = time.time()
 
-user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.45).convert_alpha()
+#0.45 for OG
+user_car = pygame.transform.scale_by(pygame.image.load(constants.USER_CAR_PATH), 0.18).convert_alpha()
 user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
 
 background = pygame.image.load(constants.BACKGROUND_PATH).convert_alpha()
 background_rect = background.get_rect(center=constants.BACKGROUND_CENTER)
 
+title_screen = pygame.image.load(constants.TITLE_SCREEN_PATH).convert_alpha()
+title_screen_rect = title_screen.get_rect(center=constants.TITLE_SCREEN_CENTER)
+
 duplicate_background_rect = background.get_rect(center=constants.DUPLICATE_BACKGROUND_CENTER)
 
-restart_button = pygame.image.load(constants.RESTART_BUTTON_PATH).convert_alpha()
+restart_button = pygame.transform.scale_by(pygame.image.load(constants.RESTART_BUTTON_PATH), 0.5).convert_alpha()
 restart_button_rect = restart_button.get_rect(center=constants.RESTART_BUTTON_CENTER)
 
 green_car_image = pygame.transform.scale_by(pygame.image.load(constants.CAR_PATHS[0]), 0.45).convert_alpha()
@@ -159,6 +165,14 @@ coin_image = pygame.transform.scale_by(pygame.image.load(constants.COIN_PATH), 0
 bill_image = pygame.transform.scale_by(pygame.image.load(constants.BILL_PATH), 0.04).convert_alpha()
 stack_image = pygame.transform.scale_by(pygame.image.load(constants.STACK_PATH), 0.04).convert_alpha()
 
+heart_image = pygame.transform.scale_by(pygame.image.load(constants.HEART_PATH), 0.4).convert_alpha()
+
+numbers_images = []
+for i in range(10):
+ num_img = pygame.transform.scale_by(pygame.image.load(f"./images/levels/{i}.png"), 0.2).convert_alpha()
+ numbers_images.append(num_img)
+
+level_image = pygame.transform.scale_by(pygame.image.load(constants.LEVEL_PATH), 0.2).convert_alpha()
 
 font = pygame.font.SysFont(None, 24)
 name_font = pygame.font.SysFont(None, 36)
@@ -173,6 +187,16 @@ my_clock = pygame.time.Clock()
 user_input_box = pygame.Rect(constants.USER_INPUT_BOX_X, constants.USER_INPUT_BOX_Y, constants.USER_INPUT_BOX_WIDTH, constants.USER_INPUT_BOX_HEIGHT)
 user_input = ''
 player_name = ''
+new_level_buffer = False
+prev_level = -1
+base_level_time = time.time()
+
+def convert_level_to_list(num):
+  result = []
+  while num != 0:
+    result.insert(0, num % 10)
+    num = num // 10
+  return result
 
 def write_to_file(filename, player_score):
   with open(filename, 'a') as file:
@@ -215,6 +239,10 @@ def reset_game():
   global cars_avoided
   global time_passed
   global current_level
+  global lives
+  global new_level_buffer
+  global prev_level
+  global base_level_time
   item_id_to_rect_map.clear()
   item_id_to_surface_map.clear()
   user_car_rect = user_car.get_rect(center=constants.USER_CAR_CENTER)
@@ -224,13 +252,20 @@ def reset_game():
   program_start_time = time.time()
   last_car_generate_time = time.time()
   last_money_generate_time = time.time()
+  last_time_lost_life = time.time()
   cars_avoided = 0
   time_passed = 0
   current_level = 0
+  lives = 3
+  new_level_buffer = False
+  prev_level = -1
+  base_level_time = time.time()
 
 def detect_collisions():
   global game_state
   global total_cash
+  global lives
+  global last_time_lost_life
   item_rect_list = list(item_id_to_rect_map.values())
   found_collision_id = "Null"
   for (id, item_rect) in item_id_to_rect_map.items():
@@ -248,7 +283,15 @@ def detect_collisions():
             total_cash = total_cash + 10
             break
         else:
-            game_state = constants.GAME_STATE_OVER
+            if time.time() - last_time_lost_life >= constants.LIFE_LOST_COOLDOWN:
+              last_time_lost_life = time.time()
+              if lives == 1:
+                game_state = constants.GAME_STATE_OVER
+              else:
+                found_collision_id = id
+                lives = lives - 1
+                break
+
 
   if found_collision_id != "Null":
       item_id_to_rect_map.pop(id)
@@ -356,9 +399,8 @@ def draw_input():
 
 def draw_title():
   lcd.fill((0,0,0))
-  title_font = pygame.font.SysFont(None, 72)
-  title_text = title_font.render(constants.TITLE_SCREEN_NAME, True, WHITE)
-  lcd.blit(title_text, (450, 220))
+
+  lcd.blit(title_screen, title_screen_rect)
 
   instructions_text = name_font.render(constants.TITLE_SCREEN_INSTRUCTIONS, True, WHITE)
   lcd.blit(instructions_text, constants.TITLE_SCREEN_INSTRUCTIONS_CENTER)
@@ -389,6 +431,13 @@ def draw_score():
     lcd.blit(score_text, (50, 100))
     high_score_text = font.render('high score: ' + str(int(high_score)), True, BLUE)
     lcd.blit(high_score_text, (50, 150))
+
+def draw_lives():
+  global lives
+  for i in range(lives):
+    lcd.blit(heart_image, (900+90*i, 700))
+  life_text = font.render('lives left: ' + str(lives), True, BLUE)
+  lcd.blit(life_text, (50, 400))
 
 def draw_leaderboard():
   index = 1
@@ -421,6 +470,22 @@ def draw_current_level():
     current_level_text = font.render('current level: ' + str(current_level), True, BLUE)
     lcd.blit(current_level_text, (50, 350))
 
+def draw_level_display(current_time):
+  global new_level_buffer
+  global base_level_time
+  global current_level
+  if time.time() - base_level_time < constants.LEVEL_DISPLAY_TIME and new_level_buffer:
+      numbers = convert_level_to_list(current_level)
+      # 123 -> [1, 2, 3]
+      index = 0
+      if len(numbers) > 0:
+        lcd.blit(level_image, (400, 150))
+      for num in numbers:
+        lcd.blit(numbers_images[num], (700 + 60 * index, 150))
+        index = index + 1
+  else:
+      new_level_buffer = False
+
 def draw_statistics():
     draw_score()
     draw_cars_avoided()
@@ -429,6 +494,7 @@ def draw_statistics():
     update_time_passed()
     draw_time_passed()
     draw_current_level()
+    draw_lives()
 
 def draw_restart_button():
   lcd.blit(restart_button, restart_button_rect)
@@ -493,11 +559,16 @@ while running:
   elif (game_state == constants.GAME_STATE_RUNNING):
     current_time = time.time()
     current_level = int((current_time - program_start_time) //30)
+    if current_level > prev_level:
+      prev_level = current_level
+      new_level_buffer = True
+      base_level_time = time.time()
     # if (current_time - last_item_generate_time >= 8/ (10 + (current_time - last_item_generate_time) * 0.1)):
-    if (current_time - last_item_generate_time >= (8 / (7 + 2.5 * current_level))):
+    if (current_time - last_item_generate_time >= (8 / (7 + 2.5 * current_level))) and new_level_buffer == False:
       generate_item()
       last_item_generate_time = current_time
     draw_background()
+    draw_level_display(base_level_time)
     draw_statistics()
     draw_leaderboard()
     draw_user()
@@ -525,7 +596,7 @@ while running:
       elif event.key == pygame.K_BACKSPACE:
         user_input = user_input[:-1]
       else:
-        if len(user_input) < 12:  
+        if len(user_input) < 11:  
           user_input = user_input + event.unicode
 
 print("quit main code, waiting for thread to quit...")
